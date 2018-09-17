@@ -4,6 +4,7 @@ provider:
   name: aws
   runtime: java8
   memorySize: 1536
+  timeout: 30
   environment: ${file(serverless.secrets.yml):${self:provider.stage}}
   stage: ${opt:stage, self:custom.defaultStage}
   profile: ${self:custom.profiles.${self:provider.stage}}
@@ -15,8 +16,7 @@ provider:
   - Effect: "Allow"
     Action:
     - "s3:*"
-    Resource: arn:aws:s3:::${self:service}-${self:provider.stage}-output-bucket/*
-
+    Resource: arn:aws:s3:::*
 
 custom:
   accountId: ${self:custom.accountIds.${self:provider.stage}}
@@ -29,7 +29,7 @@ package:
 
 functions:
 
-  detect:
+  detect-image:
     handler: Functions::detectImage
 
   send-image:
@@ -44,7 +44,7 @@ functions:
     events:
     - sqs: arn:aws:sqs:us-east-1:${self:custom.accountId}:${self:provider.stage}-input-queue
 
-  results:
+  get-results:
     handler: Functions::getResults
     events:
     - http:
@@ -59,13 +59,7 @@ resources:
       Properties:
         QueueName: ${self:provider.stage}-input-queue
 
-    OutputQueue:
-      Type: "AWS::SQS::Queue"
-      Properties:
-        QueueName: ${self:provider.stage}-output-queue
-        VisibilityTimeout: 1
-
-    S3BucketPhotos:
+    OutputBucket:
       Type: "AWS::S3::Bucket"
       Properties:
         BucketName: ${self:service}-${self:provider.stage}-output-bucket
