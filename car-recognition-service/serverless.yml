@@ -43,6 +43,7 @@ functions:
     handler: Functions::processImages
     events:
     - sqs: arn:aws:sqs:us-east-1:${self:custom.accountId}:${self:provider.stage}-input-queue
+    reservedConcurrency: 5
 
   get-results:
     handler: Functions::getResults

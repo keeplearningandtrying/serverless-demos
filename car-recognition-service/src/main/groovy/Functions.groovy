@@ -17,6 +17,8 @@ class Functions {
   final JsonSlurper jsonSlurper = new JsonSlurper()
   final s3client = S3Util.instance.s3Client()
 
+  // Calls Algorithmia API.
+  // Returns the make and model of car in specified publicly accessible image
   def detectImage(String imageUrl, Context context) {
     AlgorithmiaClient client = Algorithmia.client(System.getenv('ALGORITHMIA_API_KEY'))
     Algorithm algo = client.algo("LgoBE/CarMakeandModelRecognition/0.3.14")
@@ -24,9 +26,10 @@ class Functions {
     JsonSlurper.newInstance().parseText(result.asJsonString())
   }
 
-  def sendImage(Map input, Context context) {
+  // Receives an http event, forwards the body to SQS and returns an http response
+  def sendImage(Map httpEvent, Context context) {
     try {
-      final request = new RequestContext().input(input).context(context)
+      final request = new RequestContext().input(httpEvent).context(context)
       final imageUrl = request.httpBody()
       SqsUtil.instance.sendSQSMessage(inputQueueUrl, imageUrl)
       new Response().statusCode(200).body("QUEUED: ${imageUrl}")
@@ -35,8 +38,10 @@ class Functions {
     }
   }
 
-  def processImages(Map event, Context context) {
-    event?.Records?.each { record ->
+  // Receives an SQS Event that may contain multiple messages.
+  // Process each message and send the result to S3
+  def processImages(Map sqsEvent, Context context) {
+    sqsEvent?.Records?.each { record ->
       final imageUrl = record?.body?.toString() ?: "Unknown Image"
       def jsonOutput
       try {
@@ -50,6 +55,7 @@ class Functions {
     }
   }
 
+  //  Reads an S3 bucket and returns all of the contents as json
   def getResults(Context context) {
     try {
 
@@ -58,7 +64,9 @@ class Functions {
         jsonSlurper.parseText(S3Util.instance.getS3ObjectContent(s3client, bucket, it.key))
       } ?: []
 
-      new Response().statusCode(200).body(JsonOutput.prettyPrint(JsonOutput.toJson(result)))
+      new Response()
+        .statusCode(200)
+        .body(JsonOutput.prettyPrint(JsonOutput.toJson(result)))
     } catch (e) {
       new Response().statusCode(500).body(e.message)
     }
